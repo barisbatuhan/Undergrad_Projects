@@ -1,0 +1,27 @@
+.logintext{
+	padding-left: 10%;
+	padding-right: 10%;
+	padding-top: 10%;
+	font-size:35px;
+	color:gray;
+	font-family: Georgia;
+}
+
+input{
+	height:50px;
+	width:100%;
+}
+
+button{
+	height:50px;
+	width:50%;
+	font-size:35px;
+	color:gray;
+	font-family: Georgia;
+	text-align: center;
+}
+
+#buton:hover{
+	background-color: #3B170B;
+	color:#FFFFFF;
+}

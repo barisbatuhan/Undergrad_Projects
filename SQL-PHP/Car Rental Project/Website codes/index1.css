@@ -1,0 +1,46 @@
+
+body{
+	background-repeat: no-repeat;
+    background-size: 100% 100%;
+}
+
+.headpart{
+	font-size:30px; 
+	font-family:Georgia; 
+	line-height:285%; 
+	height:9.5%; 
+	width:100%; 
+	background-color:#170B3B;
+	border:0px;
+	color:gray;
+}
+
+.topbuttons:hover{
+	background-color: #61210B;
+}
+
+.bodypart{
+	margin-top:1%;
+	height:75%; 
+	width:50%; 
+	background-color:#61210B;
+	border:0px;
+	text-align: center;
+}
+
+.endpart{
+	background-color: #0A0A2A;
+	height:9.5%;
+	margin-top:1%;
+	text-align:center;
+}
+
+.explanation{
+	color: gray;
+	padding-top: 13%;
+	padding-left: 10%;
+	padding-right: 10%;
+	font-size: 35px;
+	font-family: Georgia;
+	font-style: italic;
+}

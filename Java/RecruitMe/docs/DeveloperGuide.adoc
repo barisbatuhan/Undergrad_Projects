@@ -1,0 +1,1552 @@
+= Recruit Me - Developer Guide
+:site-section: DeveloperGuide
+:toc:
+:toc-title:
+:toc-placement: preamble
+:sectnums:
+:imagesDir: images
+:stylesDir: stylesheets
+:xrefstyle: full
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:warning-caption: :warning:
+endif::[]
+:repoURL: https://github.com/se-edu/addressbook-level4/tree/master
+
+By: `RecruitMe`      Since: `January 2019`      Licence: `MIT`
+
+== Setting up
+
+=== Prerequisites
+
+[NOTE]
+*JDK `9`* (revision `1.9.4` or later). Only JDK 9 is supported. +
+This app will not work with later major JDK releases such as JDK 10, 11, etc.
+
+[NOTE]
+If the tests are failing due to a system error with Java9, then try to run with Java8.
+
+[NOTE]
+Run the application through *IntelliJ* IDE. IntelliJ by default has Gradle and JavaFx plugins installed. +
+Do not disable them. If you have disabled them, go to `File` > `Settings` > `Plugins` to re-enable them.
+
+
+=== Setting up the project in your computer
+
+. Fork this repo, and clone the fork to your computer
+. Open IntelliJ (if you are not in the welcome screen, click `File` > `Close Project` to close the existing project dialog first)
+. Set up the correct JDK version for Gradle
+.. Click `Configure` > `Project Defaults` > `Project Structure`
+.. Click `New...` and find the directory of the JDK
+. Click `Import Project`
+. Locate the `build.gradle` file and select it. Click `OK`
+. Click `Open as Project`
+. Click `OK` to accept the default settings
+. Open a console and run the command `gradlew processResources` (Mac/Linux: `./gradlew processResources`). It should finish with the `BUILD SUCCESSFUL` message. +
+This will generate all resources required by the application and tests.
+
+=== Verifying the setup
+
+. Run the `seedu.address.MainApp` and try a few commands
+. <<Testing,Run the tests>> to ensure they all pass.
+
+=== Configurations to do before writing code
+
+==== Configuring the coding style
+
+This project follows https://github.com/oss-generic/process/blob/master/docs/CodingStandards.adoc[oss-generic coding standards]. IntelliJ's default style is mostly compliant with ours but it uses a different import order from ours. To rectify,
+
+. Go to `File` > `Settings...` (Windows/Linux), or `IntelliJ IDEA` > `Preferences...` (macOS)
+. Select `Editor` > `Code Style` > `Java`
+. Click on the `Imports` tab to set the order
+
+* For `Class count to use import with '\*'` and `Names count to use static import with '*'`: Set to `999` to prevent IntelliJ from contracting the import statements
+* For `Import Layout`: The order is `import static all other imports`, `import java.\*`, `import javax.*`, `import org.\*`, `import com.*`, `import all other imports`. Add a `<blank line>` between each `import`
+
+Optionally, you can follow the <<UsingCheckstyle#, UsingCheckstyle.adoc>> document to configure Intellij to check style-compliance as you write code.
+
+==== Updating documentation to match your fork
+
+After forking the repo, the documentation will still have the SE-EDU branding and refer to the `se-edu/addressbook-level4` repo.
+
+If you plan to develop this fork as a separate product (i.e. instead of contributing to `se-edu/addressbook-level4`), you should do the following:
+
+. Configure the <<Docs-SiteWideDocSettings, site-wide documentation settings>> in link:{repoURL}/build.gradle[`build.gradle`], such as the `site-name`, to suit your own project.
+
+. Replace the URL in the attribute `repoURL` in link:{repoURL}/docs/DeveloperGuide.adoc[`DeveloperGuide.adoc`] and link:{repoURL}/docs/UserGuide.adoc[`UserGuide.adoc`] with the URL of your fork.
+
+==== Setting up CI
+
+Set up Travis to perform Continuous Integration (CI) for your fork. See <<UsingTravis#, UsingTravis.adoc>> to learn how to set it up.
+
+After setting up Travis, you can optionally set up coverage reporting for your team fork (see <<UsingCoveralls#, UsingCoveralls.adoc>>).
+
+[NOTE]
+Coverage reporting could be useful for a team repository that hosts the final version but it is not that useful for your personal fork.
+
+Optionally, you can set up AppVeyor as a second CI (see <<UsingAppVeyor#, UsingAppVeyor.adoc>>).
+
+[NOTE]
+Having both Travis and AppVeyor ensures your App works on both Unix-based platforms and Windows-based platforms (Travis is Unix-based and AppVeyor is Windows-based)
+
+==== Getting started with coding
+
+When you are ready to start coding,
+
+1. Get some sense of the overall design by reading <<Design-Architecture>>.
+2. Take a look at <<GetStartedProgramming>>.
+
+== Design
+
+[[Design-Architecture]]
+=== Architecture
+
+.Architecture Diagram
+image::Architecture.png[width="600"]
+
+The *_Architecture Diagram_* given above explains the high-level design of the App. Given below is a quick overview of each component.
+
+[TIP]
+The `.pptx` files used to create diagrams in this document can be found in the link:{repoURL}/docs/diagrams/[diagrams] folder. To update a diagram, modify the diagram in the pptx file, select the objects of the diagram, and choose `Save as picture`.
+
+`Main` has only one class called link:{repoURL}/src/main/java/seedu/address/MainApp.java[`MainApp`]. It is responsible for,
+
+* At app launch: Initializes the components in the correct sequence, and connects them up with each other.
+* At shut down: Shuts down the components and invokes cleanup method where necessary.
+
+<<Design-Commons,*`Commons`*>> represents a collection of classes used by multiple other components.
+The following class plays an important role at the architecture level:
+
+* `LogsCenter` : Used by many classes to write log messages to the App's log file.
+
+The rest of the App consists of four components.
+
+* <<Design-Ui,*`UI`*>>: The UI of the App.
+* <<Design-Logic,*`Logic`*>>: The command executor.
+* <<Design-Model,*`Model`*>>: Holds the data of the App in-memory.
+* <<Design-Storage,*`Storage`*>>: Reads data from, and writes data to, the hard disk.
+
+Each of the four components
+
+* Defines its _API_ in an `interface` with the same name as the Component.
+* Exposes its functionality using a `{Component Name}Manager` class.
+
+For example, the `Logic` component (see the class diagram given below) defines it's API in the `Logic.java` interface and exposes its functionality using the `LogicManager.java` class.
+
+.Class Diagram of the Logic Component
+image::LogicClassDiagram.png[width="800"]
+
+[discrete]
+==== How the architecture components interact with each other
+
+The _Sequence Diagram_ below shows how the components interact with each other for the scenario where the user issues the command `delete 1`.
+
+.Component interactions for `delete 1` command
+image::SDforDeletePerson.png[width="800"]
+
+The sections below give more details of each component.
+
+[[Design-Ui]]
+=== UI component
+
+.Structure of the UI Component
+image::UiClassDiagram.png[width="800"]
+
+*API* : link:{repoURL}/src/main/java/seedu/address/ui/Ui.java[`Ui.java`]
+
+The UI consists of a `MainWindow` that is made up of parts e.g.`CommandBox`, `ResultDisplay`, `PersonListPanel`, `StatusBarFooter`, `BrowserPanel` etc. All these, including the `MainWindow`, inherit from the abstract `UiPart` class.
+
+The `UI` component uses JavaFx UI framework. The layout of these UI parts are defined in matching `.fxml` files that are in the `src/main/resources/view` folder. For example, the layout of the link:{repoURL}/src/main/java/seedu/address/ui/MainWindow.java[`MainWindow`] is specified in link:{repoURL}/src/main/resources/view/MainWindow.fxml[`MainWindow.fxml`]
+
+The `UI` component,
+
+* Executes user commands using the `Logic` component.
+* Listens for changes to `Model` data so that the UI can be updated with the modified data.
+
+[[Design-Logic]]
+=== Logic component
+
+[[fig-LogicClassDiagram]]
+.Structure of the Logic Component
+image::LogicClassDiagram.png[width="800"]
+
+*API* :
+link:{repoURL}/src/main/java/seedu/address/logic/Logic.java[`Logic.java`]
+
+.  `Logic` uses the `AddressBookParser` class to parse the user command.
+.  This results in a `Command` object which is executed by the `LogicManager`.
+.  The command execution can affect the `Model` (e.g. adding a person).
+.  The result of the command execution is encapsulated as a `CommandResult` object which is passed back to the `Ui`.
+.  In addition, the `CommandResult` object can also instruct the `Ui` to perform certain actions, such as displaying help to the user.
+
+Given below is the Sequence Diagram for interactions within the `Logic` component for the `execute("delete 1")` API call.
+
+.Interactions Inside the Logic Component for the `delete 1` Command
+image::DeletePersonSdForLogic.png[width="800"]
+
+[[Design-Model]]
+=== Model component
+
+.Structure of the Model Component
+image::ModelClassDiagram.png[width="800"]
+
+*API* : link:{repoURL}/src/main/java/seedu/address/model/Model.java[`Model.java`]
+
+The `Model`,
+
+* stores a `UserPref` object that represents the user's preferences.
+* stores the Address Book data.
+* exposes an unmodifiable `ObservableList<Person>` that can be 'observed' e.g. the UI can be bound to this list so that the UI automatically updates when the data in the list change.
+* does not depend on any of the other three components.
+
+[NOTE]
+As a more OOP model, we can store a `Tag` list in `Address Book`, which `Person` can reference. This would allow `Address Book` to only require one `Tag` object per unique `Tag`, instead of each `Person` needing their own `Tag` object. An example of how such a model may look like is given below. +
+ +
+image:ModelClassBetterOopDiagram.png[width="800"]
+
+[[Design-Storage]]
+=== Storage component
+
+.Structure of the Storage Component
+image::StorageClassDiagram.png[width="800"]
+
+*API* : link:{repoURL}/src/main/java/seedu/address/storage/Storage.java[`Storage.java`]
+
+The `Storage` component,
+
+* can save `UserPref` objects in json format and read it back.
+* can save the Address Book data in json format and read it back.
+
+[[Design-Commons]]
+=== Common classes
+
+Classes used by multiple components are in the `seedu.addressbook.commons` package.
+
+== Implementation
+
+This section describes some noteworthy details on how certain features are implemented.
+
+// tag::undoredo[]
+=== Undo/Redo feature
+==== Current Implementation
+
+The undo/redo mechanism is facilitated by `VersionedAddressBook`.
+It extends `AddressBook` with an undo/redo history, stored internally as an `addressBookStateList` and `currentStatePointer`.
+Additionally, it implements the following operations:
+
+* `VersionedAddressBook#commit()` -- Saves the current address book state in its history.
+* `VersionedAddressBook#undo()` -- Restores the previous address book state from its history.
+* `VersionedAddressBook#redo()` -- Restores a previously undone address book state from its history.
+
+These operations are exposed in the `Model` interface as `Model#commitAddressBook()`, `Model#undoAddressBook()` and `Model#redoAddressBook()` respectively.
+
+Given below is an example usage scenario and how the undo/redo mechanism behaves at each step.
+
+Step 1. The user launches the application for the first time. The `VersionedAddressBook` will be initialized with the initial address book state, and the `currentStatePointer` pointing to that single address book state.
+
+image::UndoRedoStartingStateListDiagram.png[width="800"]
+
+Step 2. The user executes `delete 5` command to delete the 5th person in the address book. The `delete` command calls `Model#commitAddressBook()`, causing the modified state of the address book after the `delete 5` command executes to be saved in the `addressBookStateList`, and the `currentStatePointer` is shifted to the newly inserted address book state.
+
+image::UndoRedoNewCommand1StateListDiagram.png[width="800"]
+
+Step 3. The user executes `add n/David ...` to add a new person. The `add` command also calls `Model#commitAddressBook()`, causing another modified address book state to be saved into the `addressBookStateList`.
+
+image::UndoRedoNewCommand2StateListDiagram.png[width="800"]
+
+[NOTE]
+If a command fails its execution, it will not call `Model#commitAddressBook()`, so the address book state will not be saved into the `addressBookStateList`.
+
+Step 4. The user now decides that adding the person was a mistake, and decides to undo that action by executing the `undo` command. The `undo` command will call `Model#undoAddressBook()`, which will shift the `currentStatePointer` once to the left, pointing it to the previous address book state, and restores the address book to that state.
+
+image::UndoRedoExecuteUndoStateListDiagram.png[width="800"]
+
+[NOTE]
+If the `currentStatePointer` is at index 0, pointing to the initial address book state, then there are no previous address book states to restore. The `undo` command uses `Model#canUndoAddressBook()` to check if this is the case. If so, it will return an error to the user rather than attempting to perform the undo.
+
+The following sequence diagram shows how the undo operation works:
+
+image::UndoRedoSequenceDiagram.png[width="800"]
+
+The `redo` command does the opposite -- it calls `Model#redoAddressBook()`, which shifts the `currentStatePointer` once to the right, pointing to the previously undone state, and restores the address book to that state.
+
+[NOTE]
+If the `currentStatePointer` is at index `addressBookStateList.size() - 1`, pointing to the latest address book state, then there are no undone address book states to restore. The `redo` command uses `Model#canRedoAddressBook()` to check if this is the case. If so, it will return an error to the user rather than attempting to perform the redo.
+
+Step 5. The user then decides to execute the command `list`. Commands that do not modify the address book, such as `list`, will usually not call `Model#commitAddressBook()`, `Model#undoAddressBook()` or `Model#redoAddressBook()`. Thus, the `addressBookStateList` remains unchanged.
+
+image::UndoRedoNewCommand3StateListDiagram.png[width="800"]
+
+Step 6. The user executes `clear`, which calls `Model#commitAddressBook()`. Since the `currentStatePointer` is not pointing at the end of the `addressBookStateList`, all address book states after the `currentStatePointer` will be purged. We designed it this way because it no longer makes sense to redo the `add n/David ...` command. This is the behavior that most modern desktop applications follow.
+
+image::UndoRedoNewCommand4StateListDiagram.png[width="800"]
+
+The following activity diagram summarizes what happens when a user executes a new command:
+
+image::UndoRedoActivityDiagram.png[width="650"]
+
+==== Design Considerations
+
+===== Aspect: How undo & redo executes
+
+* **Alternative 1 (current choice):** Saves the entire address book.
+** Pros: Easy to implement.
+** Cons: May have performance issues in terms of memory usage.
+* **Alternative 2:** Individual command knows how to undo/redo by itself.
+** Pros: Will use less memory (e.g. for `delete`, just save the person being deleted).
+** Cons: We must ensure that the implementation of each individual command are correct.
+
+===== Aspect: Data structure to support the undo/redo commands
+
+* **Alternative 1 (current choice):** Use a list to store the history of address book states.
+** Pros: Easy for new Computer Science student undergraduates to understand, who are likely to be the new incoming developers of our project.
+** Cons: Logic is duplicated twice. For example, when a new command is executed, we must remember to update both `HistoryManager` and `VersionedAddressBook`.
+* **Alternative 2:** Use `HistoryManager` for undo/redo
+** Pros: We do not need to maintain a separate list, and just reuse what is already in the codebase.
+** Cons: Requires dealing with commands that have already been undone: We must remember to skip these commands. Violates Single Responsibility Principle and Separation of Concerns as `HistoryManager` now needs to do two different things.
+// end::undoredo[]
+
+=== Colored Tag Feature
+
+Color-coordinated tags that represent a candidate's technical and professional skills, their position interests, and
+their endorsements created by members of the hiring company. Tags are a critical part of the recruitment platform in
+order to create a user-friendly, cohesive view of all
+candidates.Candidate tags are organized as *pink* for skills, *yellow* for positions of interest, and *blue* for
+employee endorsements.
+
+==== Current Implementation
+**Add and Edit Commands**
+
+Tag colors are determined by user input prefixes 'skill' and 'position'
+
+For example:
+`add` n/Amanda Collins ...other attributes... skill/Java skill/Powerpoint position/Project Manager
+
+Endorsement tags are separately determined by the `endorse` command and cannot be specified as part of a user profile
+ in the add and edit commands.
+
+These prefixes (skill and position) create new SkillsTag objects that specify the type of tag ('skill', 'pos', or
+'endorse') which is stored as an attribute in the SkillsTag class.
+
+The type attribute then specifies which tag color attribute is assigned to the SkillsTag, which is then communicated
+to the Storage component.
+
+SkillsTag in Logic component communicates to the CSS file in the GUI to change the color.
+
+The color attribute is then modeled as a JsonAdaptedTag in the Storage component.
+
+**IMPORTANT NOTE** the current implementation works with the JSON Constructor by adding a prefix to each `tagName`
+attribute that represents what tag type the object is. The strings 's:', 'p:', and 'e:' are prepended to each respective
+ skill, position, or endorse tag's tagName attribute.
+
+Other commands such as filtering and sorting are currently integrated with this design approach and parse out the
+prefixes to get the correct tag names. This design helps the filter and sort commands differentiate between the three
+ tag types in order to properly display the results of their commands and improve user readability.
+
+==== Alternate Implementation
+**Coming in v2.0**
+
+Logic Component Changes
+
+* Instead of representing tag type as an attribute of a SkillsTag object, a `Tag` interface will be implemented by
+distinct `SkillsTag`, `PositionTag`, `EndorseTag` objects.
+* The tags will have separate adapted JSON objects in order to correctly store the colors in the Storage component.
+* This will replace the current system of
+prepending tagName attributes with the respective tag type prefixes ('s:', 'p:', and 'e:').
+
+UI Component Changes
+
+* While the current implementation makes UI changes in the colors of the tags, the next implementation will have the
+separate tags featured on different lines instead of the current List of tags that has them in a random order.
+* The new view will improve the UI design to make the tags more organized and clear.
+
+
+=== Filter or/and/clear/reverse feature
+
+*Usage Format Regarding Current Implementation:*
+
+* *Format 1:* `filter or/and [name<NAME>name] [phone<PHONE>phone] [email<EMAIL>email] [gpa<GPA>gpa] [edu<EDUCATION>edu] [deg<DEGREE-LEVEL>deg] [addr<ADDRESS>addr] [skill<SKILL1, SKILL2, ... >skill][pos<POSITION1, POSITION2, ... >pos] [end<ENDORSEMENT-COUNT>end]`
+* *Format 2:* `filter clear/reverse`
+
+*Basic Definitions Before the Actual Implementation Explanation:*
+
+* *`PREFIX:`* For every single field (name, phone, email etc.), the leading combination of characters which indicate that the data for that field will be entered beginning from that location of the input.
+** e.g. for name field `name<`, for gpa field `gpa<`
+* *`REVERSE PREFIX:`* For every single field, the combination of terminating characters which indicate that the data for that field will be stopped after that location of the input.
+** e.g. for email field >email`, for skills field `>skill`
+* *`CRITERIA/CRITERION:`* These are the texts that are between 'PREFIX' and 'REVERSE PREFIX'
+** e.g. for the input `filter and deg<bachelors>deg phone<95>phone`, the criterion are `bachelors` and `95`.
+** all the criterion possible for filtering are: `NAME, PHONE, EMAIL, GPA, EDUCATION, DEGREE-LEVEL, ADDRESS, SKILLS` (It can have multiple criterion inside of it, e.g. `skill<C++, Java>skill has 2 criterion C++ and Java`), `POSITIONS` (same situation with SKILLS), `ENDORSEMENT-COUNT`.
+
+*Differences of 4 Types of Filter Commands:*
+
+* *`AND:`* This type of command is used for only showing the persons that passes all the criterion given in the input.
+** e.g. if input is `filter and edu<NUS>edu pos<Manager, Developer>pos`, only the persons, who have studied in `NUS` and applied for both `Manager and Developer` positions, will be shown.
+* *`OR:`* This type of command is used for only showing the persons that passes at least one of the criterion given in the input.
+** e.g. if input is `filter or` `addr<Singapore>addr` `skill<C, Java>skill`, only the persons who live in `Singapore` or knows about the skills that contain `C or Java` will be shown
+* *`CLEAR:`* If a filtering is applied before and the currently viewed list is a filtered list of persons, then this type clears all the active filtering and shows all the persons in the storage.
+* *`REVERSE:`* If a filtering is applied before, this command shows only the persons that are eliminated with the previous filtering conditions. Basically, it reverses the filter.
+** e.g. if input is `filter reverse` and if there are 11 persons in the total storage but only 7 are shown since there is a filtering, this type shows only the 4 other persons that were not shown.
+
+*Filtering Approaches for Every Single Field:*
+
+[TIP]
+Although in some fields, any ASCII character can be taken as inputs, using `< or >` can cause false results. Please do not use them in your filtering inputs for the criterion fields.
+
+[TIP]
+All the text searches are case-insensitive. That means, if the input is `in` for example, all these texts will be matched with the input: `In, in, iN, IN`.
+
+[TIP]
+Below, the word *contained* is used a lot. This word means that, if the input is a substring of the searched value for the looked person, the input is contained. +
+e.g. if the input is `ale` for the name, all the persons will be chosen, who have at least one of the uppercase and lowercase combination of the input `ale` in their names as a substring. +
+e.g. if the input is `ale`, the person with the name `Alex, aLex, ALEX, alexandra etc.` will be matched.
+
+* *`NAME:`* It can take any English alphabet character and also `space` character. It checks if the entered criteria is *contained* in the names of the persons in the list.
+* *`PHONE:`* It can take any positive number, controls if the entered criteria is *contained* in the phones of the persons in the list.
+* *`EMAIL and ADDRESS:`* It can take any number of ASCII characters more than 0. Controls if the entered criteria is *contained* in the emails/addresses of the persons in the list.
+* *`GPA:`* It takes a positive `integer` or `float` value between 0 and 4. Shows the persons with higher or equal GPA values from the given criteria.
+* *`EDUCATION:`* It can take any English alphabet character and also `space` character. It checks if the entered criteria is *contained* in the school/education of the persons in the list.
+* *`SKILLS and POSITIONS:`*
+** It can take any number of ASCII characters more than 0 (except "," in the `skill/position` itself).
+** Multiple `skills/positions` can be entered with using one `PREFIX` and one `REVERSE PREFIX` as long as the `skills/positions` are separated with ",".
+** Controls, if the given `skills/positions` are *contained* in the actual `skills/positions` of the persons in the list.
+* *`ENDORSEMENT-COUNT:`* It takes a positive `integer`. If the given number as an input is less than or equal to the number of endorsements (it is just the process, where a person recommended by someone) the person has, then this person is shown.
+* *`DEGREE-LEVEL:`*
+** The input for this field can take an `integer` between 0 and 4 (they are included) or a text, which can be either `highschool` or `associates` or `bachelors` or `masters` or `phd`.
+** Order of `integers` are matched with the order of texts given. In other words, input 0 also means `highschool`, 1 means `associates`, 2 means `bachelors` etc.
+** In this filtering field, it is controlled that if the entered degree level is a lower or an equal level than the one for the searched person, the person will be shown in the list.
+
+// tag::filter[]
+==== Current Implementation of Filter Command
+
+*Implementation Details:*
+
+* *Class Diagram of the Filtering Command:*
+
+image::class-diagram-filter.png[width="800"]
+
+* *Sequence Diagram of the Filtering Command:*
+
+image::sequence-diagram-filter.png[width="800"]
+
+* Filtering is parsed in `FilterCommandParser` class, directed in `FilterCommand` class for further processing and actual filtering process took place in `AddressBook` class.
+
+* *Working Principle of `FilterCommandParser` Class*
+. The input is trimmed (spaces at the beginning and at the end are cleaned), cleared from multiple spaces and turned into lowercase form.
+. By checking the first number of characters of the input, the type of the process is determined (`and`, `or`, `clear` or `reverse`) and stored in an `integer` value. If the input has none of them, an invalid input message is shown.
+. Since there are 10 different fields that can be filtered, a `String array` with size 10, called *criterion*, is created and the values are set to " " in initialization.
+. If the type is `clear` or `reverse`, a new `FilterCommand` object is called with passing the `criterion` array and the `process-type-holding-integer` for that method. If it is not, followings take place.
+. The prefixes are searched. For each of the fields, these controls are made:
+** Checked if the `PREFIX` exists in the input for the searched field.
+** If it is, then `REVERSE PREFIX` for that field is also searched and if that is also found, it is checked that if the `PREFIX` is placed before `REVERSE PREFIX`.
+** If it is not, or if the search cannot reach to this step, then an invalid input message is shown.
+** If the steps are passed successfully, the element in the `criterion` array for this field will be changed to the value `"available"` +
+e.g. if the input is `filter or phone<57>phone`, then the `PREFIX` and `REVERSE PREFIX` locations are correct, the 21st index (related index for the phone in the array) of the `criterion` will be set to `"available"`.
+** Since the parser looks for the first occurrence of `PREFIX` and `REVERSE PREFIX`, if there are multiple filtering parts for the searched criteria, then the first one will be taken.
+. For the available fields (the ones with the regarding `criterion` indexes are set to `"available"`), an input check is made for the the text between the `PREFIX` and `REVERSE PREFIX`. For the non-available filtering conditions, the value in `criterion` for the related field is set to `null`.
+. If the parameters does not pass the input check, an error is thrown, which says the input is in invalid form. If they passes the input check, then the index for the regarding field in `criterion` array is set to the text value between the `PREFIX` and `REVERSE PREFIX`. +
+e.g. the 1st index of `criterion` is set to `57` regarding to the example above.
+. FilterCommand function is called. In the parameters `criterion` and `process-type-holding-integer` passed to the object constructor.
+
+* *Working Principle of `FilterCommand` Class*
+. For each 10 fields of the filter command criterion, a `string` parameter is constructed and the values are set regarding the values in `criterion` array. If no value for that field is present, the parameter in the `FilterCommand` class is set to `null`.
+. Since `SKILLS` and `POSITIONS` fields can contain more than one criterion inside (all the criterion are separated with ", " for these), the string values in `criterion` array regarding to those fields are split through "," usage and the data for these are stored in `String[]` parameters created in `FilterCommand` class, instead of `String` parameters.
+. Also the type of the process (`and`, `or`, `clear` or `reverse`) is stored in a parameter in `FilterCommand`, too.
+. According to the process type, one of the methods `filterAnd()`, `filterOr()`, `clearFilter()` or `reverseFilter()` is called through `Model` interface and these methods in `Model` also called the one of these methods in `AddressBook` class with the same name.
+. For `filterAnd()` and `filterOr()` methods, the values for every single field are passed through the method call.
+
+* *Working Principle of `AddressBook` Class for Filtering Purposes*
+** In the AddressBook class, a new `UniquePersonsList` parameter called `allPersonsStorage` is added.
+** When the filtering method is used, the `persons` parameter in the class is updated according to the filtering criterion (the persons that are not matching the conditions are removed). However, in order not to lose data, the new added `allPersonsStorage` parameter is not being changed with the filtering processes. It still continues to store every single person in the application storage.
+** *When clearFilter() method is called*, if there is a filtering available, every single person who is not in `persons` parameter but in `allPersonsStorage` are added to the `persons` storage. So basically, it is right to say that `persons` parameter only holds the persons we expect to see in the GUI.
+** *When reverseFilter() method is called*, if there is a filtering available, every single person who is in `persons` parameter is replaced with the persons who were not stored in this parameter before.
+** *When filterOr() method is called*, every single person in `persons` parameter is traversed and the ones that do not contain *none* of the criterion set through input are removed from `persons`.
+** *When filterAnd() method is called*, every single person in `persons` parameter is traversed and the ones that do not contain *even one* of the criterion set through input are removed from `persons`.
+** The information if there is a filtering available in the application, is also stored in a boolean parameter in `AddressBook` and set true with `filterAnd() and filterOr()` methods, set false with the initial launch of the application, `clearFilter()` call and `Add Command call` (because it increases the size of the data and it is not know that if the newly added person fits the filtering criterion or not).
+** Filter-keeping-parameter is important, because with `undo and redo commands`, it is important to maintain the filtering state in order not to lose any data and in order to use `clearFilter()` method.
+
+
+==== Alternative Approaches
+
+In this title, both Command implementation and Parser implementation will be discussed in 2 parts:
+
+===== Command Implementation
+
+Instead of adding another parameter in `AddressBook` class called `allPersonsStorage`, another approach would be letting `persons` parameter to hold
+all the unfiltered information and updating `filteredPersons` parameter in the `ModelManager` class. `filteredPersons` is a list of persons that is defined in `ModelManager`.
+It is especially used in `FindCommand`, that applies a basic filter to the list of persons in the application with only one criteria `NAME`.
+However, `filteredPersons` is implemented with `Predicate` approach.
+
+* **Pros of this approach:**
+** Does not need any additional permanent parameter to be created in AddressBook class.
+** Decreases the number of changes made in each list changing method of the AddressBook class. Because, if any additional
+parameter is added to AddressBook class, all the functions have to be changed considering the new parameter.
+
+* **Cons of this approach:**
+** It is hard and time consuming to implement this approach because `Predicates` are used. In `AddressBook` class itself, we can directly reach to the persons and their all fields easily. But with `Predicate` approach,
+it requires additional data to be built (`Predicates` may need to be created before adding new persons to the parameter). Moreover, we do not have much knowledge about `Predicate` usage and because of these reasons, our job may take more time to finish.
+
+===== Parser Implementation
+
+Instead of putting the criterion contents between both `PREFIXES` and `REVERSE PREFIXES`, we
+could only add the content after `PREFIX` (without any `REVERSE PREFIX` usage) like the addition process .
+
+* **Pros of this approach:**
+** User would need to write less number of characters
+
+* **Cons of this approach:**
+** Using also reverse prefix makes the job much easier, because it simply marks also the end of the content.
+** In currently implemented version, no order of the criterion is necessary. So, first phone number and then name etc. can be added for filtering condition.
+However in the alternative approach, implementing the input taking with no order is harder and time consuming.
+
+==== Testing of Filter Command Design
+
+The testing methods for filtering is written for 3 different parts:
+
+===== FilterCommandParserTests
+
+* This test class is prepared for unit testing of FilterCommandParser cass. With the tests:
+** The validity of inputs with single and multiple field are present are checked.
+** The given order of inputs are checked in case of any possibility for an error.
+** Empty command or `filter` command without any type specification are checked.
+** The exceptions thrown are controlled, when the criterion are empty.
+** For `number` type of criterion, the negative and positive out of bound values, entering string values and entering valid values are checked.
+** For `String` type of criterion, the type of characters allowed are checked.
+
+===== FilterCommandTests
+
+* This test class is prepared for unit testing of Filtering Command. With these tests Filtering process are checked:
+** when a single or multiple criterion are given,
+** when filtering occurs multiple times,
+** when type is `clear` or `reverse` and there are no/one/multiple filters are applied before.
+
+===== FilterCommandIntegrationTests
+
+* This test class contains integration tests and investigates the interaction of `FilterCommand` with: `UndoCommand`, `RedoCommand`, `AddCommand`, `DeleteCommand`,`SortCommand`, `FindCommand`, `SelectCommand`, and cases, when all of them are together.
+* Each test case at least contains filtering with `or - success` or `and - success`, `clear - success` and `clear - failure`, `reverse - success` and `reverse - failure`.
+* Also for every interacting command, *failure* and *success* cases are both investigated.
+// end::filter[]
+
+
+// tag::sort[]
+=== Sort Commands
+==== Current Implementation Summary
+There are currently eleven main sorting methods present: `name`, `surname`, `gpa`, `education`, `degree`, `skills`, `positions`, `endorsements`, `skill number`, `position number`, `endorsement number`.
+There is also a complimentary `reverse` sort method for each main sorting method.
+
+* **name** is called by the user through the following cli input: `sort name`. +
+It takes the _current_ list displayed in the left hand GUI panel and sorts them by name alphabetically. The name sort begins with the first name and then proceeds to last name.
+
+* **surname** is called by the user through the following cli input: `sort surname`. +
+It takes the _current_ list displayed in the left hand GUI panel and sorts them by surname alphabetically.
+
+* **gpa** is called by the user through the following cli input: `sort gpa`. +
+It takes the _current_ list displayed in the left hand GUI panel and sorts them by gpa in decreasing numeric order.
+
+* **education** is called by the user through the following cli input: `sort education`. +
+It takes the _current_ list displayed in the left hand GUI panel and sorts them by education alphabetically.
+
+* **degree** is called by the user through the following cli input: `sort degree`. +
+It takes the _current_ list displayed in the left hand GUI panel and sorts them by degree starting with _PhD_ and then proceeding to _Masters_, _Bachelors_, _Associates_ and _High School_ in this order.
+
+* **skills** is called by the user through the following cli input: `sort skills`. +
+It takes the _current_ list displayed in the left hand GUI panel and first orders the skill tags for each person alphabetically. The method then proceeds to sort all persons based on their skill tags, in alphabetical order.
+
+* **positions** is called by the user through the following cli input: `sort positions`. +
+It takes the _current_ list displayed in the left hand GUI panel and first orders the position tags for each person alphabetically. The method then proceeds to sort all persons based on their position tags, in alphabetical order.
+
+* **endorsements** is called by the user through the following cli input: `sort endorsements`. +
+It takes the _current_ list displayed in the left hand GUI panel and first orders the endorsements for each person alphabetically. The method then proceeds to sort all persons based on their endorsements, in alphabetical order.
+
+* **skill number** is called by the user through the following cli input: `sort skill number`. +
+It takes the _current_ list displayed in the left hand GUI panel and orders the persons based on their number of skills in descending order.
+
+* **position number** is called by the user through the following cli input: `sort position number`. +
+It takes the _current_ list displayed in the left hand GUI panel and orders the persons based on their number of positions in descending order.
+
+* **endorsement number** is called by the user through the following cli input: `sort endorsement number`. +
+It takes the _current_ list displayed in the left hand GUI panel and orders the persons based on their number of endorsements in descending order.
+
+* **reverse** can be applied before the sort keyword (e.g. `name`) through the following cli input: `sort reverse name`
+
+_(the **current** list means that if filter is on, only those filtered persons shall be sorted and the filter shall remain on)_
+
+
+**Intelligent Sorting**:
+
+For a recruiting company with a large number of contacts it is highly likely that certain fields shall be repeated (for example two different persons can both have Bachelors degrees).
+To aid the user, _intelligent sorting_ has been implemented. It sorts persons that match in the field that the initial sort is looking at and then performs a secondary sort using a method related to the initial sort.
+The sequences of these are shown below.
+
+.Flow pattern for the sorting methods
+|===
+|Initial Sort Method |Subsequent Sort Method __(for persons with same value after first sort method)__ |Secondary Subsequent Sort Method __(for persons with same value after first and subsequent sort method)__
+|Name
+| -
+| -
+
+|Surname
+|Name
+| -
+
+|Skills, Positions, Endorsements
+|Name
+| -
+
+|Skills, Positions, Endorsements Number
+|Skills, Positions, Endorsements respectively
+|Name
+
+|Gpa
+|Name
+| -
+
+|Degree
+|GPA
+|Name
+
+|Education
+|GPA
+|Name
+|===
+
+==== Current Implementation Description.
+
+The sort command works in a similar fashion to the commands already in place. Below is a sequence diagram for a general sort method.
+The `SortCommandParser` implements the already created `Parser` interface. It is used to take the CLI user input and make a new SortCommand object only if a valid Sort Word has been passed into the CLI.
+
+The SortCommand is an extension of the abstract `command` class. This means history, command results and addressbook committing follow the same format as the commands in place. This allows it's compatibility with those commands already present.
+It takes the list of persons in the addressbook. It ensures that if a `filter` is present, only these filtered persons are sorted, but the complete persons list is left unaffected. This presents accidental deletion of contact information.
+The SortCommand class proceeds to take the input, initially from the CLI, and uses `processSortMethod` to call the necessary sorting method.
+The sorting method classes all implement the SortMethod interface which executes the necessary sort on the list and has a getList() method.
+
+Once a correctly ordered list of persons has been retrieved by the SortCommand class, it checks for the `reverse` keyword and makes the necessary adaption.
+All the persons are then deleted from this model. Due to the severity of this command, additional care has been taken to ensure it can only be processed providing there is a list of persons (of the same length) present to replace it.
+It then adds the persons back into the addressbook in the correct order, taking note of the filter to ensure compatibility.
+
+image::SortSequenceDiagram.png[width="800"]
+.Sequence Diagram for a general sort method.
+
+Also of note are the methods used in the sorts themselves. Below is shown the sequence diagram for a surname sorting method as an example.
+The sort methods begin by retrieving the field of interest to the particular sorting method. The aim is to create a `Comparator<Person>` which can subsequently be easily sorted either numerically or alphabetically.
+To retrieve the field of interest, the `Person` class is used. For those fields not suited to numerical or alphabetical sorting, associated values can be generated. For example in the `degree` field, values are given to the different levels which can then be sorted.
+These methods should be stored in `PersonUtil` to keep the frequently used `Person` class as clear and relevant as possible.
+
+For the `skills`,  `positions` and `endorsements` sorting methods, it is required for the person's individual tags to be sorted first. This uses a sorting method on each person and the creation of _new_ person with correctly ordered skill/position/endorsement tags.
+Once a comparator has been created, the `SortUtil` class can be used to perform the actual sorting. This makes use of Java's `stream.Collectors` method.
+
+For _intelligent sorting_ the `SortListWithDuplicates` class is used. It divides the list of persons from the initial sort into smaller lists (_dupPersonList_) of those returning the same comparator value.
+These are then individually sorted by the subsequent sorting method. By utilising similar methods for each sort method, this makes the subsequent calling of further sort methods quick and easy.
+It is worth noting that a subsequent sorting method shall then perform a further sort if its comparator returns a duplicate value within the duplicate list.
+This process is terminated by the sort name method since the addressbook does not allow people to be added with the same name.
+
+image::SortSurnameSequenceDiagram.png[width="800"]
+.Sequence Diagram for the surname sort.
+
+==== Implementation Rational
+Despite the risk of slightly increasing the coupling, the aim was to use methods already written and rely on good cohesion.
+For example, once a sort command has correctly written the correctly ordered persons to a `List<Person>`, rather than duplicating large amounts of code by modifying the already listed persons in the GUI, it shall simply remove the persons in that addressbook version and then immediately re-add them in the correct order.
+
+It is of note that the temporary deletion of persons from the addressbook should be foolproof and there should be no way that the sort command ever permanently deletes the addressbook. Furthermore, ensuring the command works with the already implemented undo/redo command should ensure the user still has full control over all the persons in the contact book.
+
+The future of this product demands the dynamic addition of contact fields as they become important. These fields should then be able to be sorted. Consequently it is paramount that the addition of a further sort command is easy.
+This is achieved through the `SortMethod` interface and provision of very adaptable sorting method techniques that can be later used. The steps taken to add a new sort command are provided below.
+
+==== Approaches Considered
+When writing sort commands, there were two approaches considered: modify the indices of all persons and then refresh the left-hand GUI panel with this new list; or temporarily delete the list of persons and then add a new list of correctly ordered persons.
+
+Elements of lists in Java are ordered by when they were added. Sorting is possible using _Collections_, however this requires them to be strings. Since the Recruit Me application contains lists of various object types, typically _Person_, there is no immediate compatibility with _Collections_. Furthermore it was suspected that to simply modify the indices of persons, a lot of duplicate code would be need to be written since this aspect of addressbook-level4 was not easily modifiable. Because of this the second method was opted for.
+
+It was also decided to make this command as similar as possible in style to those already present. This meant that it was almost immediately compatible with the other commands.
+This way it could also make use of various methods already in place.
+
+
+==== Adding a New Sort Command
+
+To add a new sort command, the following classes should be altered accordingly:
+
+* `cliSyntax` - add the necessary new SortWord (and the reverse option), this should match the desired CLI user input
+* `SortCommandParser` - add the new SortWords as an accepted input
+* `Sort[NewMethod]` - a new class that implements the `SortMethod` interface, that will execute a sort on the list of Persons, according to the new method, and a getList() method for returning this correctly ordered list. Here a subsequent ordering method can be specified for __intelligent sorting__
+* `Person` - it is often useful to have a Person's field as a string or numerical value in order to create a comparator. Consequently a method should be provided here for returning the Person's new field as a string or number.
+* `SortCommand` - create the link between the new SortWord and the new `Sort[NewMethod]` class
+* `SortUtil` - a place for lower-level processes required by the new sort method and called from `Sort[NewMethod]`
+
+When choosing the subsequent sort for _intelligent sorting_, a loop must not be created. For example matching gpa's can't use education as a subsequent sorting method if education is already using gpa. This is because if a person has both the same gpa and education, they can't be sorted.
+
+The developer should also add the necessary testing methods in `SortCommandTest` and `SortCommandIntegrationTest`
+// end::sort[]
+
+
+// tag::endorse[]
+=== Endorse Command
+
+==== Overview
+
+* A command for the use of company employees that want to assist in the hiring process and find the candidates that
+will work best in their teams.
+
+* The `endorse` command allows employees to select candidates by their index and create an endorsement tag to help
+candidates stand out in the recruiting platform.
+
+* There is a complementary `'clear'` function for removing endorsement tags if an employee wants to rescind his
+recommendation.
+
+image::EndorseCommandDiagram.png[width="800"]
+
+
+==== Current Implementation
+
+Endorsing mechanism is facilitated by `AddressBook`. Like other commands, the Logic Manager parses the user input and
+recognizes the 'endorse' keyword as the user calling the `endorse` command and sending the arguments to the
+`EndorseCommandParser`. The parser then interprets the specified index as an `Index` object and identifies the
+candidate to endorse. A new tag of type 'endorse' is created and added to the set of tags associated
+with the specific `Person` object. The tag is shaded teal to represent an endorsement and a "e:" prefix is added to the
+tag name in order
+to save the color correctly as a `JsonAdaptedTag` (as described in Section 3.2: Colored Tags).
+
+**Clearing Endorsements**
+
+Endorsing can be reversed through the `'clear'` keyword. When an employee has previously endorsed a candidate and
+then wants to remove that endorsement, he or she can include 'clear' in their endorse command input before the index
+is specified. The `EndorseCommandParser` recognizes the clear command and specifies that this is a clearing process
+in the instantiation of a new `EndorseCommand` object. To specify a normal endorse command, the `EndorseCommand`
+object is passed a process code of 0 in the constructor and a process code of 1 to show that a clearing command has
+been called. The object recognizes the passing of a clearing process and removes the tag of the specified employee in
+ the `Person` class.
+
+**Incorporation With Other Commands**
+
+_**Add and Edit Commands**_
+
+The add command does not have prefixes for creating endorsement tags so that candidates cannot add any company
+endorsements when they `add` themselves to the platform or when they `edit` their profile.
+
+Because endorsements are only created and removed by employees, they are saved as part of the candidate profile and
+cannot be changed by a candidate editing their skills and position tags. If a candidate adds or removes tags from
+their profile, any employee endorsements that they have received will be maintained.
+
+_**Filter and Sort Commands**_
+
+In order for the command to be functional in a filtered or sorted view, the candidate is found in the model through
+the filtered persons list. When a user filters by specified parameters and/or sorts the results by a
+profile characteristic, using the endorse command on the new indexed results will still result in a successful
+endorsement of the correct candidate.
+
+
+==== Endorse Command Tests
+
+Tests the implementation of the endorse command and the endorse clear command. Checks that the endorse command
+correctly creates an endorsement tag and endorses the correct indexed person. Also checks that the endorse clear
+command removes an endorsement tag from the correct indexed person.
+The following use cases are tested:
+
+* Endorses the correct index and correct person at the specified index
+* Clears endorsement of correct person at the correct index
+* Accepts a valid employee name
+* Accepts a valid integer as the index
+* Cannot endorse a candidate more than once
+* Cannot clear an endorsement that has never been made
+
+
+
+==== Alternate Implementation
+
+_Coming in v2.0_
+
+Separating exclusive features for different users so that only candidates can change their skills and only employees
+can endorse candidates. We will differentiate the experiences that the distinct users (candidates,
+recruiters, and employees) can have with the platform and make a more individual view for each person. Distinguishing
+ which user is using the system will allow us to prevent some users from using functions that are only meant for
+ others, such as candidates using the endorse function or employees editing a candidate profile.
+
+// end::endorse[]
+
+// tag::dataencryption[]
+=== [Proposed] Data Encryption
+
+_{Explain here how the data encryption feature will be implemented}_
+
+// end::dataencryption[]
+
+// tag::logging[]
+=== Logging
+
+We are using `java.util.logging` package for logging. The `LogsCenter` class is used to manage the logging levels and logging destinations.
+
+* The logging level can be controlled using the `logLevel` setting in the configuration file (See <<Implementation-Configuration>>)
+* The `Logger` for a class can be obtained using `LogsCenter.getLogger(Class)` which will log messages according to the specified logging level
+* Currently log messages are output through: `Console` and to a `.log` file.
+
+*Logging Levels*
+
+* `SEVERE` : Critical problem detected which may possibly cause the termination of the application
+* `WARNING` : Can continue, but with caution
+* `INFO` : Information showing the noteworthy actions by the App
+* `FINE` : Details that is not usually noteworthy but may be useful in debugging e.g. print the actual list instead of just its size
+
+// end::logging[]
+
+// tag::configuration[]
+[[Implementation-Configuration]]
+=== Configuration
+
+Certain properties of the application can be controlled (e.g user prefs file location, logging level) through the configuration file (default: `config.json`).
+
+// end::configuration[]
+=======
+
+[[Implementation-Sort Commands]]
+=== Sort Commands
+
+When writing sort commands, there were two approaches considered: modify the indices of all persons and then refresh the left-hand GUI panel with this new list; or temporarily delete the list of persons and then add a new list of correctly ordered persons.
+
+Elements of lists in Java are ordered by when they were added. Sorting is possible using Collections, however this requires them to be strings. Since the Recruit Me application contains lists of various types, typically Person, there is no immediate compatibility with Collections. Furthermore it was suspected that to simply modify the indices of persons, a lot of duplicate code would be need to be written since this aspect of addressbooklevel4 was not easily modifiable. Because of this the second method was opted for.
+
+Despite the risk of slightly increasing the coupling, the aim was to use methods already written and rely on good cohesion. For example, once a sort command has correctly written the correctly ordered persons to a `List<Person>`, rather than duplicating large amounts of code by modifying the already listed persons, it shall use the already written delete person and add person commands.
+
+It is of note that the temporary deletion of persons from the addressbook should be foolproof and there should be no way that the sort command ever permenantly deltes the addressbook. Furthermore, ensuring the command works with the already implemented undo/redo command should ensure the user still has full control over all the persons in the contact book.
+
+To add a new sort command, the following should be taken into account... (INSERT CLASS DIAGRAM)
+
+Two sorting methods are currently present: `alphabetical` and `skills`...
+
+// end::logging]
+
+=== Education and GPA
+
+New parameters for perspective employees to add to their information. Employers are able to look at this information to determine if the person is suitable for the position at the company. Education and GPA can be use to filer or sort the perspective employees.
+
+*Education*
+
+New parameter to specify the level of schooling achieved by the perspective employee.
+
+*GPA*
+
+New parameter for the grade point average achieved by the perspective employee.
+
+NOT COMPLETE.
+
+
+== Documentation
+
+We use asciidoc for writing documentation.
+
+[NOTE]
+We chose asciidoc over Markdown because asciidoc, although a bit more complex than Markdown, provides more flexibility in formatting.
+
+=== Editing Documentation
+
+See <<UsingGradle#rendering-asciidoc-files, UsingGradle.adoc>> to learn how to render `.adoc` files locally to preview the end result of your edits.
+Alternatively, you can download the AsciiDoc plugin for IntelliJ, which allows you to preview the changes you have made to your `.adoc` files in real-time.
+
+=== Publishing Documentation
+
+See <<UsingTravis#deploying-github-pages, UsingTravis.adoc>> to learn how to deploy GitHub Pages using Travis.
+
+=== Converting Documentation to PDF format
+
+We use https://www.google.com/chrome/browser/desktop/[Google Chrome] for converting documentation to PDF format, as Chrome's PDF engine preserves hyperlinks used in webpages.
+
+Here are the steps to convert the project documentation files to PDF format.
+
+.  Follow the instructions in <<UsingGradle#rendering-asciidoc-files, UsingGradle.adoc>> to convert the AsciiDoc files in the `docs/` directory to HTML format.
+.  Go to your generated HTML files in the `build/docs` folder, right click on them and select `Open with` -> `Google Chrome`.
+.  Within Chrome, click on the `Print` option in Chrome's menu.
+.  Set the destination to `Save as PDF`, then click `Save` to save a copy of the file in PDF format. For best results, use the settings indicated in the screenshot below.
+
+.Saving documentation as PDF files in Chrome
+image::chrome_save_as_pdf.png[width="300"]
+
+[[Docs-SiteWideDocSettings]]
+=== Site-wide Documentation Settings
+
+The link:{repoURL}/build.gradle[`build.gradle`] file specifies some project-specific https://asciidoctor.org/docs/user-manual/#attributes[asciidoc attributes] which affects how all documentation files within this project are rendered.
+
+[TIP]
+Attributes left unset in the `build.gradle` file will use their *default value*, if any.
+
+[cols="1,2a,1", options="header"]
+.List of site-wide attributes
+|===
+|Attribute name |Description |Default value
+
+|`site-name`
+|The name of the website.
+If set, the name will be displayed near the top of the page.
+|_not set_
+
+|`site-githuburl`
+|URL to the site's repository on https://github.com[GitHub].
+Setting this will add a "View on GitHub" link in the navigation bar.
+|_not set_
+
+|`site-seedu`
+|Define this attribute if the project is an official SE-EDU project.
+This will render the SE-EDU navigation bar at the top of the page, and add some SE-EDU-specific navigation items.
+|_not set_
+
+|===
+
+[[Docs-PerFileDocSettings]]
+=== Per-file Documentation Settings
+
+Each `.adoc` file may also specify some file-specific https://asciidoctor.org/docs/user-manual/#attributes[asciidoc attributes] which affects how the file is rendered.
+
+Asciidoctor's https://asciidoctor.org/docs/user-manual/#builtin-attributes[built-in attributes] may be specified and used as well.
+
+[TIP]
+Attributes left unset in `.adoc` files will use their *default value*, if any.
+
+[cols="1,2a,1", options="header"]
+.List of per-file attributes, excluding Asciidoctor's built-in attributes
+|===
+|Attribute name |Description |Default value
+
+|`site-section`
+|Site section that the document belongs to.
+This will cause the associated item in the navigation bar to be highlighted.
+One of: `UserGuide`, `DeveloperGuide`, ``LearningOutcomes``{asterisk}, `AboutUs`, `ContactUs`
+
+_{asterisk} Official SE-EDU projects only_
+|_not set_
+
+|`no-site-header`
+|Set this attribute to remove the site navigation bar.
+|_not set_
+
+|===
+
+=== Site Template
+
+The files in link:{repoURL}/docs/stylesheets[`docs/stylesheets`] are the https://developer.mozilla.org/en-US/docs/Web/CSS[CSS stylesheets] of the site.
+You can modify them to change some properties of the site's design.
+
+The files in link:{repoURL}/docs/templates[`docs/templates`] controls the rendering of `.adoc` files into HTML5.
+These template files are written in a mixture of https://www.ruby-lang.org[Ruby] and http://slim-lang.com[Slim].
+
+[WARNING]
+====
+Modifying the template files in link:{repoURL}/docs/templates[`docs/templates`] requires some knowledge and experience with Ruby and Asciidoctor's API.
+You should only modify them if you need greater control over the site's layout than what stylesheets can provide.
+The SE-EDU team does not provide support for modified template files.
+====
+
+[[Testing]]
+== Testing
+
+=== Running Tests
+
+There are three ways to run tests.
+
+[TIP]
+The most reliable way to run tests is the 3rd one. The first two methods might fail some GUI tests due to platform/resolution-specific idiosyncrasies.
+
+*Method 1: Using IntelliJ JUnit test runner*
+
+* To run all tests, right-click on the `src/test/java` folder and choose `Run 'All Tests'`
+* To run a subset of tests, you can right-click on a test package, test class, or a test and choose `Run 'ABC'`
+
+*Method 2: Using Gradle*
+
+* Open a console and run the command `gradlew clean allTests` (Mac/Linux: `./gradlew clean allTests`)
+
+[NOTE]
+See <<UsingGradle#, UsingGradle.adoc>> for more info on how to run tests using Gradle.
+
+*Method 3: Using Gradle (headless)*
+
+Thanks to the https://github.com/TestFX/TestFX[TestFX] library we use, our GUI tests can be run in the _headless_ mode. In the headless mode, GUI tests do not show up on the screen. That means the developer can do other things on the Computer while the tests are running.
+
+To run tests in headless mode, open a console and run the command `gradlew clean headless allTests` (Mac/Linux: `./gradlew clean headless allTests`)
+
+=== Types of tests
+
+We have two types of tests:
+
+.  *GUI Tests* - These are tests involving the GUI. They include,
+.. _System Tests_ that test the entire App by simulating user actions on the GUI. These are in the `systemtests` package.
+.. _Unit tests_ that test the individual components. These are in `seedu.address.ui` package.
+.  *Non-GUI Tests* - These are tests not involving the GUI. They include,
+..  _Unit tests_ targeting the lowest level methods/classes. +
+e.g. `seedu.address.commons.StringUtilTest`
+..  _Integration tests_ that are checking the integration of multiple code units (those code units are assumed to be working). +
+e.g. `seedu.address.storage.StorageManagerTest`
+..  Hybrids of unit and integration tests. These test are checking multiple code units as well as how the are connected together. +
+e.g. `seedu.address.logic.LogicManagerTest`
+
+
+=== Troubleshooting Testing
+**Problem: `HelpWindowTest` fails with a `NullPointerException`.**
+
+* Reason: One of its dependencies, `HelpWindow.html` in `src/main/resources/docs` is missing.
+* Solution: Execute Gradle task `processResources`.
+
+== Dev Ops
+
+=== Build Automation
+
+See <<UsingGradle#, UsingGradle.adoc>> to learn how to use Gradle for build automation.
+
+=== Continuous Integration
+
+We use https://travis-ci.org/[Travis CI] and https://www.appveyor.com/[AppVeyor] to perform _Continuous Integration_ on our projects. See <<UsingTravis#, UsingTravis.adoc>> and <<UsingAppVeyor#, UsingAppVeyor.adoc>> for more details.
+
+=== Coverage Reporting
+
+We use https://coveralls.io/[Coveralls] to track the code coverage of our projects. See <<UsingCoveralls#, UsingCoveralls.adoc>> for more details.
+
+=== Documentation Previews
+When a pull request has changes to asciidoc files, you can use https://www.netlify.com/[Netlify] to see a preview of how the HTML version of those asciidoc files will look like when the pull request is merged. See <<UsingNetlify#, UsingNetlify.adoc>> for more details.
+
+=== Making a Release
+
+Here are the steps to create a new release.
+
+.  Update the version number in link:{repoURL}/src/main/java/seedu/address/MainApp.java[`MainApp.java`].
+.  Generate a JAR file <<UsingGradle#creating-the-jar-file, using Gradle>>.
+.  Tag the repo with the version number. e.g. `v0.1`
+.  https://help.github.com/articles/creating-releases/[Create a new release using GitHub] and upload the JAR file you created.
+
+=== Managing Dependencies
+
+A project often depends on third-party libraries. For example, Address Book depends on the https://github.com/FasterXML/jackson[Jackson library] for JSON parsing. Managing these _dependencies_ can be automated using Gradle. For example, Gradle can download the dependencies automatically, which is better than these alternatives:
+
+[loweralpha]
+. Include those libraries in the repo (this bloats the repo size)
+. Require developers to download those libraries manually (this creates extra work for developers)
+
+[[GetStartedProgramming]]
+[appendix]
+== Suggested Programming Tasks to Get Started
+
+Suggested path for new programmers:
+
+1. First, add small local-impact (i.e. the impact of the change does not go beyond the component) enhancements to one component at a time. Some suggestions are given in <<GetStartedProgramming-EachComponent>>.
+
+2. Next, add a feature that touches multiple components to learn how to implement an end-to-end feature across all components. <<GetStartedProgramming-RemarkCommand>> explains how to go about adding such a feature.
+
+[[GetStartedProgramming-EachComponent]]
+=== Improving each component
+
+Each individual exercise in this section is component-based (i.e. you would not need to modify the other components to get it to work).
+
+[discrete]
+==== `Logic` component
+
+*Scenario:* You are in charge of `logic`. During dog-fooding, your team realize that it is troublesome for the user to type the whole command in order to execute a command. Your team devise some strategies to help cut down the amount of typing necessary, and one of the suggestions was to implement aliases for the command words. Your job is to implement such aliases.
+
+[TIP]
+Do take a look at <<Design-Logic>> before attempting to modify the `Logic` component.
+
+. Add a shorthand equivalent alias for each of the individual commands. For example, besides typing `clear`, the user can also type `c` to remove all persons in the list.
++
+****
+* Hints
+** Just like we store each individual command word constant `COMMAND_WORD` inside `*Command.java` (e.g.  link:{repoURL}/src/main/java/seedu/address/logic/commands/FindCommand.java[`FindCommand#COMMAND_WORD`], link:{repoURL}/src/main/java/seedu/address/logic/commands/DeleteCommand.java[`DeleteCommand#COMMAND_WORD`]), you need a new constant for aliases as well (e.g. `FindCommand#COMMAND_ALIAS`).
+** link:{repoURL}/src/main/java/seedu/address/logic/parser/AddressBookParser.java[`AddressBookParser`] is responsible for analyzing command words.
+* Solution
+** Modify the switch statement in link:{repoURL}/src/main/java/seedu/address/logic/parser/AddressBookParser.java[`AddressBookParser#parseCommand(String)`] such that both the proper command word and alias can be used to execute the same intended command.
+** Add new tests for each of the aliases that you have added.
+** Update the user guide to document the new aliases.
+** See this https://github.com/se-edu/addressbook-level4/pull/785[PR] for the full solution.
+****
+
+[discrete]
+==== `Model` component
+
+*Scenario:* You are in charge of `model`. One day, the `logic`-in-charge approaches you for help. He wants to implement a command such that the user is able to remove a particular tag from everyone in the address book, but the model API does not support such a functionality at the moment. Your job is to implement an API method, so that your teammate can use your API to implement his command.
+
+[TIP]
+Do take a look at <<Design-Model>> before attempting to modify the `Model` component.
+
+. Add a `removeTag(Tag)` method. The specified tag will be removed from everyone in the address book.
++
+****
+* Hints
+** The link:{repoURL}/src/main/java/seedu/address/model/Model.java[`Model`] and the link:{repoURL}/src/main/java/seedu/address/model/AddressBook.java[`AddressBook`] API need to be updated.
+** Think about how you can use SLAP to design the method. Where should we place the main logic of deleting tags?
+**  Find out which of the existing API methods in  link:{repoURL}/src/main/java/seedu/address/model/AddressBook.java[`AddressBook`] and link:{repoURL}/src/main/java/seedu/address/model/person/Person.java[`Person`] classes can be used to implement the tag removal logic. link:{repoURL}/src/main/java/seedu/address/model/AddressBook.java[`AddressBook`] allows you to update a person, and link:{repoURL}/src/main/java/seedu/address/model/person/Person.java[`Person`] allows you to update the tags.
+* Solution
+** Implement a `removeTag(Tag)` method in link:{repoURL}/src/main/java/seedu/address/model/AddressBook.java[`AddressBook`]. Loop through each person, and remove the `tag` from each person.
+** Add a new API method `deleteTag(Tag)` in link:{repoURL}/src/main/java/seedu/address/model/ModelManager.java[`ModelManager`]. Your link:{repoURL}/src/main/java/seedu/address/model/ModelManager.java[`ModelManager`] should call `AddressBook#removeTag(Tag)`.
+** Add new tests for each of the new public methods that you have added.
+** See this https://github.com/se-edu/addressbook-level4/pull/790[PR] for the full solution.
+****
+
+[discrete]
+==== `Ui` component
+
+*Scenario:* You are in charge of `ui`. During a beta testing session, your team is observing how the users use your address book application. You realize that one of the users occasionally tries to delete non-existent tags from a contact, because the tags all look the same visually, and the user got confused. Another user made a typing mistake in his command, but did not realize he had done so because the error message wasn't prominent enough. A third user keeps scrolling down the list, because he keeps forgetting the index of the last person in the list. Your job is to implement improvements to the UI to solve all these problems.
+
+[TIP]
+Do take a look at <<Design-Ui>> before attempting to modify the `UI` component.
+
+. Use different colors for different tags inside person cards. For example, `friends` tags can be all in brown, and `colleagues` tags can be all in yellow.
++
+**Before**
++
+image::getting-started-ui-tag-before.png[width="300"]
++
+**After**
++
+image::getting-started-ui-tag-after.png[width="300"]
++
+****
+* Hints
+** The tag labels are created inside link:{repoURL}/src/main/java/seedu/address/ui/PersonCard.java[the `PersonCard` constructor] (`new Label(tag.tagName)`). https://docs.oracle.com/javase/8/javafx/api/javafx/scene/control/Label.html[JavaFX's `Label` class] allows you to modify the style of each Label, such as changing its color.
+** Use the .css attribute `-fx-background-color` to add a color.
+** You may wish to modify link:{repoURL}/src/main/resources/view/DarkTheme.css[`DarkTheme.css`] to include some pre-defined colors using css, especially if you have experience with web-based css.
+* Solution
+** You can modify the existing test methods for `PersonCard` 's to include testing the tag's color as well.
+** See this https://github.com/se-edu/addressbook-level4/pull/798[PR] for the full solution.
+*** The PR uses the hash code of the tag names to generate a color. This is deliberately designed to ensure consistent colors each time the application runs. You may wish to expand on this design to include additional features, such as allowing users to set their own tag colors, and directly saving the colors to storage, so that tags retain their colors even if the hash code algorithm changes.
+****
+
+. Modify link:{repoURL}/src/main/java/seedu/address/commons/events/ui/NewResultAvailableEvent.java[`NewResultAvailableEvent`] such that link:{repoURL}/src/main/java/seedu/address/ui/ResultDisplay.java[`ResultDisplay`] can show a different style on error (currently it shows the same regardless of errors).
++
+**Before**
++
+image::getting-started-ui-result-before.png[width="200"]
++
+**After**
++
+image::getting-started-ui-result-after.png[width="200"]
++
+****
+* Hints
+** link:{repoURL}/src/main/java/seedu/address/commons/events/ui/NewResultAvailableEvent.java[`NewResultAvailableEvent`] is raised by link:{repoURL}/src/main/java/seedu/address/ui/CommandBox.java[`CommandBox`] which also knows whether the result is a success or failure, and is caught by link:{repoURL}/src/main/java/seedu/address/ui/ResultDisplay.java[`ResultDisplay`] which is where we want to change the style to.
+** Refer to link:{repoURL}/src/main/java/seedu/address/ui/CommandBox.java[`CommandBox`] for an example on how to display an error.
+* Solution
+** Modify link:{repoURL}/src/main/java/seedu/address/commons/events/ui/NewResultAvailableEvent.java[`NewResultAvailableEvent`] 's constructor so that users of the event can indicate whether an error has occurred.
+** Modify link:{repoURL}/src/main/java/seedu/address/ui/ResultDisplay.java[`ResultDisplay#handleNewResultAvailableEvent(NewResultAvailableEvent)`] to react to this event appropriately.
+** You can write two different kinds of tests to ensure that the functionality works:
+*** The unit tests for `ResultDisplay` can be modified to include verification of the color.
+*** The system tests link:{repoURL}/src/test/java/systemtests/AddressBookSystemTest.java[`AddressBookSystemTest#assertCommandBoxShowsDefaultStyle() and AddressBookSystemTest#assertCommandBoxShowsErrorStyle()`] to include verification for `ResultDisplay` as well.
+** See this https://github.com/se-edu/addressbook-level4/pull/799[PR] for the full solution.
+*** Do read the commits one at a time if you feel overwhelmed.
+****
+
+. Modify the link:{repoURL}/src/main/java/seedu/address/ui/StatusBarFooter.java[`StatusBarFooter`] to show the total number of people in the address book.
++
+**Before**
++
+image::getting-started-ui-status-before.png[width="500"]
++
+**After**
++
+image::getting-started-ui-status-after.png[width="500"]
++
+****
+* Hints
+** link:{repoURL}/src/main/resources/view/StatusBarFooter.fxml[`StatusBarFooter.fxml`] will need a new `StatusBar`. Be sure to set the `GridPane.columnIndex` properly for each `StatusBar` to avoid misalignment!
+** link:{repoURL}/src/main/java/seedu/address/ui/StatusBarFooter.java[`StatusBarFooter`] needs to initialize the status bar on application start, and to update it accordingly whenever the address book is updated.
+* Solution
+** Modify the constructor of link:{repoURL}/src/main/java/seedu/address/ui/StatusBarFooter.java[`StatusBarFooter`] to take in the number of persons when the application just started.
+** Use link:{repoURL}/src/main/java/seedu/address/ui/StatusBarFooter.java[`StatusBarFooter#handleAddressBookChangedEvent(AddressBookChangedEvent)`] to update the number of persons whenever there are new changes to the addressbook.
+** For tests, modify link:{repoURL}/src/test/java/guitests/guihandles/StatusBarFooterHandle.java[`StatusBarFooterHandle`] by adding a state-saving functionality for the total number of people status, just like what we did for save location and sync status.
+** For system tests, modify link:{repoURL}/src/test/java/systemtests/AddressBookSystemTest.java[`AddressBookSystemTest`] to also verify the new total number of persons status bar.
+** See this https://github.com/se-edu/addressbook-level4/pull/803[PR] for the full solution.
+****
+
+[discrete]
+==== `Storage` component
+
+*Scenario:* You are in charge of `storage`. For your next project milestone, your team plans to implement a new feature of saving the address book to the cloud. However, the current implementation of the application constantly saves the address book after the execution of each command, which is not ideal if the user is working on limited internet connection. Your team decided that the application should instead save the changes to a temporary local backup file first, and only upload to the cloud after the user closes the application. Your job is to implement a backup API for the address book storage.
+
+[TIP]
+Do take a look at <<Design-Storage>> before attempting to modify the `Storage` component.
+
+. Add a new method `backupAddressBook(ReadOnlyAddressBook)`, so that the address book can be saved in a fixed temporary location.
++
+****
+* Hint
+** Add the API method in link:{repoURL}/src/main/java/seedu/address/storage/AddressBookStorage.java[`AddressBookStorage`] interface.
+** Implement the logic in link:{repoURL}/src/main/java/seedu/address/storage/StorageManager.java[`StorageManager`] and link:{repoURL}/src/main/java/seedu/address/storage/JsonAddressBookStorage.java[`JsonAddressBookStorage`] class.
+* Solution
+** See this https://github.com/se-edu/addressbook-level4/pull/594[PR] for the full solution.
+****
+
+[[GetStartedProgramming-RemarkCommand]]
+=== Creating a new command: `remark`
+
+By creating this command, you will get a chance to learn how to implement a feature end-to-end, touching all major components of the app.
+
+*Scenario:* You are a software maintainer for `addressbook`, as the former developer team has moved on to new projects. The current users of your application have a list of new feature requests that they hope the software will eventually have. The most popular request is to allow adding additional comments/notes about a particular contact, by providing a flexible `remark` field for each contact, rather than relying on tags alone. After designing the specification for the `remark` command, you are convinced that this feature is worth implementing. Your job is to implement the `remark` command.
+
+==== Description
+Edits the remark for a person specified in the `INDEX`. +
+Format: `remark INDEX r/[REMARK]`
+
+Examples:
+
+* `remark 1 r/Likes to drink coffee.` +
+Edits the remark for the first person to `Likes to drink coffee.`
+* `remark 1 r/` +
+Removes the remark for the first person.
+
+==== Step-by-step Instructions
+
+===== [Step 1] Logic: Teach the app to accept 'remark' which does nothing
+Let's start by teaching the application how to parse a `remark` command. We will add the logic of `remark` later.
+
+**Main:**
+
+. Add a `RemarkCommand` that extends link:{repoURL}/src/main/java/seedu/address/logic/commands/Command.java[`Command`]. Upon execution, it should just throw an `Exception`.
+. Modify link:{repoURL}/src/main/java/seedu/address/logic/parser/AddressBookParser.java[`AddressBookParser`] to accept a `RemarkCommand`.
+
+**Tests:**
+
+. Add `RemarkCommandTest` that tests that `execute()` throws an Exception.
+. Add new test method to link:{repoURL}/src/test/java/seedu/address/logic/parser/AddressBookParserTest.java[`AddressBookParserTest`], which tests that typing "remark" returns an instance of `RemarkCommand`.
+
+===== [Step 2] Logic: Teach the app to accept 'remark' arguments
+Let's teach the application to parse arguments that our `remark` command will accept. E.g. `1 r/Likes to drink coffee.`
+
+**Main:**
+
+. Modify `RemarkCommand` to take in an `Index` and `String` and print those two parameters as the error message.
+. Add `RemarkCommandParser` that knows how to parse two arguments, one index and one with prefix 'r/'.
+. Modify link:{repoURL}/src/main/java/seedu/address/logic/parser/AddressBookParser.java[`AddressBookParser`] to use the newly implemented `RemarkCommandParser`.
+
+**Tests:**
+
+. Modify `RemarkCommandTest` to test the `RemarkCommand#equals()` method.
+. Add `RemarkCommandParserTest` that tests different boundary values
+for `RemarkCommandParser`.
+. Modify link:{repoURL}/src/test/java/seedu/address/logic/parser/AddressBookParserTest.java[`AddressBookParserTest`] to test that the correct command is generated according to the user input.
+
+===== [Step 3] Ui: Add a placeholder for remark in `PersonCard`
+Let's add a placeholder on all our link:{repoURL}/src/main/java/seedu/address/ui/PersonCard.java[`PersonCard`] s to display a remark for each person later.
+
+**Main:**
+
+. Add a `Label` with any random text inside link:{repoURL}/src/main/resources/view/PersonListCard.fxml[`PersonListCard.fxml`].
+. Add FXML annotation in link:{repoURL}/src/main/java/seedu/address/ui/PersonCard.java[`PersonCard`] to tie the variable to the actual label.
+
+**Tests:**
+
+. Modify link:{repoURL}/src/test/java/guitests/guihandles/PersonCardHandle.java[`PersonCardHandle`] so that future tests can read the contents of the remark label.
+
+===== [Step 4] Model: Add `Remark` class
+We have to properly encapsulate the remark in our link:{repoURL}/src/main/java/seedu/address/model/person/Person.java[`Person`] class. Instead of just using a `String`, let's follow the conventional class structure that the codebase already uses by adding a `Remark` class.
+
+**Main:**
+
+. Add `Remark` to model component (you can copy from link:{repoURL}/src/main/java/seedu/address/model/person/Address.java[`Address`], remove the regex and change the names accordingly).
+. Modify `RemarkCommand` to now take in a `Remark` instead of a `String`.
+
+**Tests:**
+
+. Add test for `Remark`, to test the `Remark#equals()` method.
+
+===== [Step 5] Model: Modify `Person` to support a `Remark` field
+Now we have the `Remark` class, we need to actually use it inside link:{repoURL}/src/main/java/seedu/address/model/person/Person.java[`Person`].
+
+**Main:**
+
+. Add `getRemark()` in link:{repoURL}/src/main/java/seedu/address/model/person/Person.java[`Person`].
+. You may assume that the user will not be able to use the `add` and `edit` commands to modify the remarks field (i.e. the person will be created without a remark).
+. Modify link:{repoURL}/src/main/java/seedu/address/model/util/SampleDataUtil.java/[`SampleDataUtil`] to add remarks for the sample data (delete your `data/addressbook.json` so that the application will load the sample data when you launch it.)
+
+===== [Step 6] Storage: Add `Remark` field to `JsonAdaptedPerson` class
+We now have `Remark` s for `Person` s, but they will be gone when we exit the application. Let's modify link:{repoURL}/src/main/java/seedu/address/storage/JsonAdaptedPerson.java[`JsonAdaptedPerson`] to include a `Remark` field so that it will be saved.
+
+**Main:**
+
+. Add a new JSON field for `Remark`.
+
+**Tests:**
+
+. Fix `invalidAndValidPersonAddressBook.json`, `typicalPersonsAddressBook.json`, `validAddressBook.json` etc., such that the JSON tests will not fail due to a missing `remark` field.
+
+===== [Step 6b] Test: Add withRemark() for `PersonBuilder`
+Since `Person` can now have a `Remark`, we should add a helper method to link:{repoURL}/src/test/java/seedu/address/testutil/PersonBuilder.java[`PersonBuilder`], so that users are able to create remarks when building a link:{repoURL}/src/main/java/seedu/address/model/person/Person.java[`Person`].
+
+**Tests:**
+
+. Add a new method `withRemark()` for link:{repoURL}/src/test/java/seedu/address/testutil/PersonBuilder.java[`PersonBuilder`]. This method will create a new `Remark` for the person that it is currently building.
+. Try and use the method on any sample `Person` in link:{repoURL}/src/test/java/seedu/address/testutil/TypicalPersons.java[`TypicalPersons`].
+
+===== [Step 7] Ui: Connect `Remark` field to `PersonCard`
+Our remark label in link:{repoURL}/src/main/java/seedu/address/ui/PersonCard.java[`PersonCard`] is still a placeholder. Let's bring it to life by binding it with the actual `remark` field.
+
+**Main:**
+
+. Modify link:{repoURL}/src/main/java/seedu/address/ui/PersonCard.java[`PersonCard`]'s constructor to bind the `Remark` field to the `Person` 's remark.
+
+**Tests:**
+
+. Modify link:{repoURL}/src/test/java/seedu/address/ui/testutil/GuiTestAssert.java[`GuiTestAssert#assertCardDisplaysPerson(...)`] so that it will compare the now-functioning remark label.
+
+===== [Step 8] Logic: Implement `RemarkCommand#execute()` logic
+We now have everything set up... but we still can't modify the remarks. Let's finish it up by adding in actual logic for our `remark` command.
+
+**Main:**
+
+. Replace the logic in `RemarkCommand#execute()` (that currently just throws an `Exception`), with the actual logic to modify the remarks of a person.
+
+**Tests:**
+
+. Update `RemarkCommandTest` to test that the `execute()` logic works.
+
+==== Full Solution
+
+See this https://github.com/se-edu/addressbook-level4/pull/599[PR] for the step-by-step solution.
+
+[appendix]
+== Product Scope - Target user profile
+
+*General Needs*:
+
+* has a need to manage a significant number of contacts
+* prefer desktop apps over other types
+* can type fast
+* prefers typing over mouse input
+* is reasonably comfortable using CLI apps
+
+*Special Needs*:
+
+* this is an application for recruitment agency specifically
+* the commands (filtering, sorting, deleting, adding etc.) and tags (education, experience etc.) are designed for applicants
+
+*Value proposition*: manage contacts faster than a typical mouse/GUI driven app
+
+[appendix]
+== User Stories
+
+Priorities: High (must have) - `* * \*`, Medium (nice to have) - `* \*`, Low (unlikely to have) - `*`
+
+[width="59%",cols="22%,<23%,<25%,<30%",options="header",]
+|=======================================================================
+|Priority |As a ... |I want to ... |So that I can...
+|`* * *` |new user |see usage instructions |refer to instructions when I forget how to use the App
+
+|`* * *` |user |add a new person |
+
+|`* * *` |user |delete a person |remove entries that I no longer need
+
+|`* * *` |user |find a person by name |locate details of persons without having to go through the entire list
+
+|`* *` |user |hide <<private-contact-detail,private contact details>> by default |minimize chance of someone else seeing them by accident
+
+|`* *` |user with many persons in the address book |sort persons by name |locate a person easily
+
+|`* *` |user with many persons in the address book |filter persons by any of the multiple properties at the same time |see which persons are fit into the criterion
+
+|`* *` |user with many persons in the address book |use all the other operations when filtering is active |locate the searched persons more easily
+
+|`* *` |user with many persons in the address book |disable the active filtering |see all the list when the job is done
+
+|`* *` |user with many persons in the address book |undo the operation what he/she just did |prevent false updates in the address book
+
+|`* *` |user with many persons in the address book |redo the operation what he/she just did |prevent false undo operations in the address book
+
+|`* *` |user with many persons in the address book |see the education level, technical skills and experience of the persons |choose persons regarding more information given.
+
+|=======================================================================
+
+_{More to be added}_
+
+[appendix]
+== Use Cases
+
+(For all use cases below, the *System* is the `AddressBook` and the *Actor* is the `user`, unless specified otherwise)
+
+[discrete]
+=== Use case: Delete person
+
+1.  User requests to list persons
+2.  AddressBook shows a list of persons
+3.  User requests to delete a specific person in the list
+4.  AddressBook deletes the person
++
+Use case ends.
+
+*Extensions*
+
+[none]
+* 2a. The list is empty.
++
+Use case ends.
+
+* 3a. The given index is invalid.
++
+[none]
+** 3a1. AddressBook shows an error message.
++
+Use case resumes at step 2.
+
+[discrete]
+=== Use case: Add person
+
+1.  User requests to add a new person with entering information about the new person
+2.  AddressBook adds the person
++
+Use case ends.
+
+*Extensions*
+
+[none]
+* 2a. The given information format is invalid
++
+
+[none]
+** 2a1. AddressBook shows an error message.
++
+Use case ends.
+
+[none]
+* 2b. All the necessary information is not given.
+
++
+
+[none]
+** 2b1. AddressBook shows an error message.
++
+Use case ends.
+
+[discrete]
+=== Use case: Filter person with and
+
+1.  User requests to filter address book with entering conditions to filter
+2.  AddressBook filters the persons that passes with all the conditions and prints those.
++
+Use case ends.
+
+*Extensions*
+
+[none]
+* 2a. The given information format is invalid
++
+
+[none]
+** 2a1. AddressBook shows an error message.
++
+Use case ends.
+
+[appendix]
+
+[discrete]
+=== Use case: Filter person with or
+
+1.  User requests to filter address book with entering conditions to filter
+2.  AddressBook filters the persons that passes with at least one of the conditions and prints those.
++
+Use case ends.
+
+*Extensions*
+
+[none]
+* 2a. The given information format is invalid
++
+
+[none]
+** 2a1. AddressBook shows an error message.
++
+Use case ends.
+
+[appendix]
+
+[discrete]
+=== Use case: Filter clearing
+
+1.  User requests to clear all the filtering in the address book.
+2.  Filtering is cleared and all the people in the book is printed.
++
+Use case ends.
+
+[discrete]
+=== Use case: Sort address book by name
+
+1.  User requests to sort address book by name
+2.  The address book is printed in a sorted order with respect to the names.
++
+Use case ends.
+
+
+[appendix]
+
+
+[appendix]
+
+== Non Functional Requirements
+
+.  Should work on any <<mainstream-os,mainstream OS>> as long as it has Java `9` (revision `1.9.4` or higher) installed.
+.  Should be able to hold up to 1000 persons without a noticeable sluggishness in performance for typical usage.
+.  A user with above average typing speed for regular English text (i.e. not code, not system admin commands) should be able to accomplish most of the tasks faster using commands than using the mouse.
+
+_{More to be added}_
+
+[appendix]
+== Glossary
+
+[[mainstream-os]] Mainstream OS::
+Windows, Linux, Unix, OS-X
+
+[[private-contact-detail]] Private contact detail::
+A contact detail that is not meant to be shared with others
+
+[appendix]
+== Product Survey
+
+*Product Name*
+
+Author: ...
+
+Pros:
+
+* ...
+* ...
+
+Cons:
+
+* ...
+* ...
+
+[appendix]
+== Instructions for Manual Testing
+
+Given below are instructions to test the app manually.
+
+[NOTE]
+These instructions only provide a starting point for testers to work on; testers are expected to do more _exploratory_ testing.
+
+=== Launch and Shutdown
+
+. Initial launch
+
+.. Download the jar file and copy into an empty folder
+.. Double-click the jar file +
+   Expected: Shows the GUI with a set of sample contacts. The window size may not be optimum.
+
+. Saving window preferences
+
+.. Resize the window to an optimum size. Move the window to a different location. Close the window.
+.. Re-launch the app by double-clicking the jar file. +
+   Expected: The most recent window size and location is retained.
+
+_{ more test cases ... }_
+
+=== Deleting a person
+
+. Deleting a person while all persons are listed
+
+.. Prerequisites: List all persons using the `list` command. Multiple persons in the list.
+.. Test case: `delete 1` +
+   Expected: First contact is deleted from the list. Details of the deleted contact shown in the status message. Timestamp in the status bar is updated.
+.. Test case: `delete 0` +
+   Expected: No person is deleted. Error details shown in the status message. Status bar remains the same.
+.. Other incorrect delete commands to try: `delete`, `delete x` (where x is larger than the list size) _{give more}_ +
+   Expected: Similar to previous.
+
+_{ more test cases ... }_
+
+=== Saving data
+
+. Dealing with missing/corrupted data files
+
+.. _{explain how to simulate a missing/corrupted file and the expected behavior}_
+
+_{ more test cases ... }_
